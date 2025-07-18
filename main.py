@@ -57,7 +57,7 @@ def scan_for_checksums(data, output_file):
                         le = interpret_checksum(checksum_bytes, 'little')
 
                         for checksum_value, endian in [(be, 'big'), (le, 'little')]:
-                            if msg_sum == checksum_value:
+                            if msg_sum == checksum_value and checksum_value != 0:
                                 checksum_str = f"0x{checksum_value:0{chk_len * 2}X}"
                                 hex_message = [f"0x{byte:02X}" for byte in message]
                                 out.write(
