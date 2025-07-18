@@ -1,9 +1,11 @@
 import csv
 import os
+import json
 
 # Configurable limits
 MAX_MSG_LEN = 256
 MAX_CHK_LEN = 256
+DEFINED_MSGS_FILE = "message_structures.json"
 
 def load_hex_values(csv_file):
     hex_values = []
@@ -34,14 +36,76 @@ def calculate_total_combinations(n):
                 total += 2  # big and little endian
     return total
 
+def load_defined_messages(path):
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+            if isinstance(data, list) and all(isinstance(entry, dict) for entry in data):
+                return data
+            else:
+                raise ValueError("Invalid structure in message_structures.json")
+    except Exception as e:
+        print(f"Error loading message definitions: {e}")
+        return []
+
+def parse_hex_list(hex_list):
+    return [int(x, 16) if isinstance(x, str) and x.startswith("0x") else x for x in hex_list]
+
+def calculate_defined_checksum(data, method):
+    ctype = method.get("type", "additive")
+    if ctype == "additive":
+        total = sum(data)
+        mod = method.get("mod", 256)
+        correction = method.get("correction", 0)
+        return (total + correction) % mod
+    elif ctype == "xor":
+        result = method.get("seed", 0)
+        for b in data:
+            result ^= b
+        return result % 256
+    else:
+        raise ValueError(f"Unsupported checksum type: {ctype}")
+
+def match_message(data, structure):
+    header = parse_hex_list(structure["header"])
+    if data[:len(header)] != header:
+        return False
+
+    data_len = structure["data_length"]
+    expected_end = len(header) + data_len
+    if len(data) < expected_end + 1:
+        return False
+
+    include_header = structure["checksum"].get("include_header", False)
+    start = 0 if include_header else len(header)
+    payload = data[start:expected_end]
+
+    checksum = data[expected_end]
+    calc = calculate_defined_checksum(payload, structure["checksum"])
+    return checksum == calc
+
 def scan_for_checksums(data, output_file):
     n = len(data)
     total_combos = calculate_total_combinations(n)
     completed = 0
 
+    defined_output_file = "results_defined.txt"
+    defined_messages = load_defined_messages(DEFINED_MSGS_FILE)
+
     try:
-        with open(output_file, 'w') as out:
+        with open(output_file, 'w') as out, open(defined_output_file, 'w') as def_out:
             for start in range(n):
+                # Check defined messages
+                for struct in defined_messages:
+                    header_len = len(struct["header"])
+                    msg_len = header_len + struct["data_length"] + 1  # +1 for checksum
+                    if start + msg_len <= n:
+                        chunk = data[start:start + msg_len]
+                        if match_message(chunk, struct):
+                            hex_chunk = [f"0x{b:02X}" for b in chunk]
+                            def_out.write(f"Matched {struct['name']} at index {start}: {hex_chunk}\n")
+
+                # Original brute-force checksum scanning
                 max_msg_len = min(MAX_MSG_LEN, n - start - 1)
                 for msg_len in range(1, max_msg_len + 1):
                     max_chk_len = min(MAX_CHK_LEN, n - start - msg_len)
@@ -49,8 +113,8 @@ def scan_for_checksums(data, output_file):
                         if chk_len > max_chk_len:
                             continue
 
-                        message = data[start : start + msg_len]
-                        checksum_bytes = data[start + msg_len : start + msg_len + chk_len]
+                        message = data[start: start + msg_len]
+                        checksum_bytes = data[start + msg_len: start + msg_len + chk_len]
                         msg_sum = sum(message)
 
                         be = interpret_checksum(checksum_bytes, 'big')
@@ -73,7 +137,7 @@ def scan_for_checksums(data, output_file):
         print("Results written so far saved to:", output_file)
 
 if __name__ == "__main__":
-    input_csv = "hex_input.csv"
+    input_csv = "test.csv"
     output_file = "results.txt"
 
     if not os.path.exists(input_csv):

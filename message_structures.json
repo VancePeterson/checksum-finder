@@ -1,0 +1,33 @@
+[
+    {
+        "name": "ECU Command 1",
+        "header": [
+            "0x85",
+            "0x06"
+        ],
+        "data_length": 5,
+        "checksum": {
+            "type": "xor",
+            "include_header": true,
+            "endian": "8bit",
+            "correction": 1,
+            "mod": 256
+        }
+    },
+    {
+        "name": "ECU Command 2",
+        "header": [
+            "0x85",
+            "0x04",
+            "0x09"
+        ],
+        "data_length": 5,
+        "checksum": {
+            "type": "additive",
+            "include_header": true,
+            "endian": "8bit",
+            "correction": 1,
+            "mod": 256
+        }
+    }
+]
