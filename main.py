@@ -92,12 +92,15 @@ def scan_for_checksums(data, output_file):
     defined_output_file = "results_defined.txt"
     defined_messages = load_defined_messages(DEFINED_MSGS_FILE)
 
-def extract_sequenced_blocks(data, start_index, block_size=8, counter_start=0x40, counter_end=0x7F):
+def extract_sequenced_blocks(data, start_index, block_size=8, counter_start=0x40, counter_end=0x7F, end_marker=0xF0):
     blocks = []
     i = start_index
     expected_counter = counter_start
 
     while i < len(data):
+        if data[i] == end_marker:
+            break  # Stop when reaching 0xF0 marker
+
         if data[i] == expected_counter:
             if i + block_size < len(data):
                 block = data[i + 1: i + 1 + block_size]
@@ -173,8 +176,8 @@ def scan_for_checksums(data, output_file):
         print("Results written so far saved to:", output_file)
 
 if __name__ == "__main__":
-    # input_csv = "stock_to_stock.csv"
-    input_csv = "test.csv"
+    input_csv = "stock_to_stock.csv"
+    # input_csv = "test.csv"
     output_file = "results.txt"
 
     if not os.path.exists(input_csv):
