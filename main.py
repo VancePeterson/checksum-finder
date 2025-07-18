@@ -92,6 +92,34 @@ def scan_for_checksums(data, output_file):
     defined_output_file = "results_defined.txt"
     defined_messages = load_defined_messages(DEFINED_MSGS_FILE)
 
+def extract_sequenced_blocks(data, start_index, block_size=8, counter_start=0x40, counter_end=0x7F):
+    blocks = []
+    i = start_index
+    expected_counter = counter_start
+
+    while i < len(data):
+        if data[i] == expected_counter:
+            if i + block_size < len(data):
+                block = data[i + 1: i + 1 + block_size]
+                blocks.append((expected_counter, block))
+                i += block_size + 1
+                expected_counter += 1
+                if expected_counter > counter_end:
+                    expected_counter = counter_start
+            else:
+                break
+        else:
+            i += 1
+    return blocks
+
+def scan_for_checksums(data, output_file):
+    n = len(data)
+    total_combos = calculate_total_combinations(n)
+    completed = 0
+
+    defined_output_file = "results_defined.txt"
+    defined_messages = load_defined_messages(DEFINED_MSGS_FILE)
+
     try:
         with open(output_file, 'w') as out, open(defined_output_file, 'w') as def_out:
             for start in range(n):
@@ -104,6 +132,14 @@ def scan_for_checksums(data, output_file):
                         if match_message(chunk, struct):
                             hex_chunk = [f"0x{b:02X}" for b in chunk]
                             def_out.write(f"Matched {struct['name']} at index {start}: {hex_chunk}\n")
+
+                            # Extract blocks starting after this defined message
+                            block_start = start + msg_len
+                            blocks = extract_sequenced_blocks(data, block_start)
+
+                            for count, block in blocks:
+                                hex_block = [f"0x{b:02X}" for b in block]
+                                def_out.write(f"  Block 0x{count:02X}: {hex_block}\n")
 
                 # Original brute-force checksum scanning
                 max_msg_len = min(MAX_MSG_LEN, n - start - 1)
@@ -137,6 +173,7 @@ def scan_for_checksums(data, output_file):
         print("Results written so far saved to:", output_file)
 
 if __name__ == "__main__":
+    # input_csv = "stock_to_stock.csv"
     input_csv = "test.csv"
     output_file = "results.txt"
 
