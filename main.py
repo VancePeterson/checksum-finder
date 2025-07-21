@@ -176,9 +176,9 @@ def scan_for_checksums(data, output_file):
         print("Results written so far saved to:", output_file)
 
 if __name__ == "__main__":
-    input_csv = "input_csvs/stock_to_stock.csv"
+    input_csv = "Input CSV/stock_to_stock3.csv"
     # input_csv = "test.csv"
-    output_file = "output_csvs/results.txt"
+    output_file = "Output CSV/results.txt"
 
     if not os.path.exists(input_csv):
         print(f"Error: Input file '{input_csv}' not found.")
